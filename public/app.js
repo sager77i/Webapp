@@ -17,6 +17,12 @@ const state = {
   bookmarks: JSON.parse(localStorage.getItem('tp_bookmarks') || '[]'),
   currentModalItem: null,
   isSpeaking: false,
+  isAudioPaused: false,
+  audioRate: 0.95,
+  availableVoices: [],
+  selectedVoice: null,
+  activeSpeechQueue: [],
+  speechQueueIndex: 0,
   synthUtterance: null
 };
 
@@ -25,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initLiveClock();
   initSearch();
+  initVoiceEngine();
   loadContent();
   loadTrends();
   updateBookmarkBadge();
@@ -939,7 +946,134 @@ function renderPollsView() {
   `).join('');
 }
 
-// 15. Text-To-Speech (SpeechSynthesis)
+// 15. Advanced Human-Like Newscaster Speech Engine
+function initVoiceEngine() {
+  if (!('speechSynthesis' in window)) return;
+
+  function loadVoices() {
+    state.availableVoices = window.speechSynthesis.getVoices() || [];
+    state.selectedVoice = selectBestVoice('th');
+  }
+
+  loadVoices();
+  if (window.speechSynthesis.onvoiceschanged !== undefined) {
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+  }
+}
+
+// Select the most natural human-sounding neural voice available
+function selectBestVoice(region = 'th') {
+  const voices = state.availableVoices.length > 0 
+    ? state.availableVoices 
+    : (('speechSynthesis' in window) ? window.speechSynthesis.getVoices() : []);
+  
+  if (!voices || voices.length === 0) return null;
+
+  if (region === 'th') {
+    // 1. Modern Natural / Neural voices on Windows 10/11 & Edge
+    const naturalThai = voices.find(v => 
+      v.lang.toLowerCase().startsWith('th') && 
+      (v.name.includes('Natural') || v.name.includes('Neural') || v.name.includes('Online'))
+    );
+    if (naturalThai) return naturalThai;
+
+    // 2. Microsoft Premwadee or Niwat or Achara
+    const msThai = voices.find(v => 
+      v.name.includes('Premwadee') || v.name.includes('Niwat') || v.name.includes('Achara')
+    );
+    if (msThai) return msThai;
+
+    // 3. Google ภาษาไทย (Chrome)
+    const googleThai = voices.find(v => 
+      v.lang.toLowerCase().startsWith('th') && v.name.includes('Google')
+    );
+    if (googleThai) return googleThai;
+
+    // 4. Any Thai voice (e.g. Apple Kanya or Siri)
+    const anyThai = voices.find(v => v.lang.toLowerCase().startsWith('th'));
+    if (anyThai) return anyThai;
+  }
+
+  // Global / English
+  const naturalEn = voices.find(v => 
+    v.lang.toLowerCase().startsWith('en') && 
+    (v.name.includes('Natural') || v.name.includes('Neural') || v.name.includes('Jenny') || v.name.includes('Guy'))
+  );
+  if (naturalEn) return naturalEn;
+
+  const googleEn = voices.find(v => v.lang.toLowerCase().startsWith('en') && v.name.includes('Google'));
+  if (googleEn) return googleEn;
+
+  return voices.find(v => v.lang.toLowerCase().startsWith('en')) || voices[0];
+}
+
+// Phonetic and text normalization for human broadcaster flow
+function cleanNewscasterText(text) {
+  if (!text) return '';
+  return text
+    // Replace abbreviations and acronyms with natural Thai phonetic equivalents
+    .replace(/\bSpot ETF\b/gi, 'สปอต อีทีเอฟ')
+    .replace(/\bETF\b/gi, 'อีทีเอฟ')
+    .replace(/\bBTC\b/gi, 'บิตคอยน์')
+    .replace(/\bBitcoin\b/gi, 'บิตคอยน์')
+    .replace(/\bAI\b/gi, 'เอไอ')
+    .replace(/\bGDP\b/gi, 'จีดีพี')
+    .replace(/\bAll-Time High\b/gi, 'ออลไทม์ไฮ')
+    .replace(/\bHalving\b/gi, 'ฮาล์ฟวิ่ง')
+    .replace(/\bGen Z\b/gi, 'เจนซี')
+    .replace(/\bTikTok\b/gi, 'ติ๊กต็อก')
+    .replace(/\bDeepfake\b/gi, 'ดีปเฟก')
+    .replace(/\bPM 2\.5\b/gi, 'พีเอ็ม สองจุดห้า')
+    .replace(/\b2nm\b/gi, 'สองนาโนเมตร')
+    .replace(/\bNet Zero\b/gi, 'เน็ตซีโร่')
+    .replace(/\bArtemis\b/gi, 'อาร์ทิมิส')
+    .replace(/\bNASA\b/gi, 'นาซา')
+    .replace(/\bCOP\b/gi, 'ซีโอพี')
+    .replace(/\bPop Culture\b/gi, 'ป๊อปคัลเจอร์')
+    .replace(/\bOpen Loop\b/gi, 'โอเพนลูป')
+    .replace(/\bData Center\b/gi, 'ดาต้าเซ็นเตอร์')
+    .replace(/\bWeb Speech\b/gi, 'เว็บสปีช')
+    // Remove symbols and formatting that cause robotic pauses
+    .replace(/[\(（][^\)）]*[\)）]/g, ' ') // Strip bracketed duplicate texts
+    .replace(/[#*`_~🔥✨⚡🐾🏳️‍🌈🪙•]/g, ' ')
+    .replace(/["“”'‘’«»]/g, ' ')
+    .replace(/%/g, ' เปอร์เซ็นต์ ')
+    .replace(/&/g, ' และ ')
+    .replace(/:/g, ' คือ ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Build human-like newscaster script with intro, natural phrasing, and pauses
+function formatNewscasterScript(item) {
+  const cleanTitle = cleanNewscasterText(item.title);
+  const cleanSummary = (item.summary || []).map(s => cleanNewscasterText(s));
+
+  const phrases = [];
+
+  // Opening phrase
+  phrases.push('เกาะติดประเด็นร้อน ทอล์ก ออฟ เดอะ ทาวน์ วันนี้');
+  
+  // Headline with clear pacing
+  phrases.push(`หัวข้อข่าวสำคัญ ${cleanTitle}`);
+
+  // Summary intro
+  if (cleanSummary.length > 0) {
+    phrases.push(`สรุป ${cleanSummary.length} ประเด็นสำคัญที่ต้องรู้`);
+
+    const ordinalWords = ['ประเด็นแรก', 'ประเด็นที่สอง', 'ประเด็นที่สาม', 'ประเด็นที่สี่', 'ประเด็นที่ห้า'];
+    cleanSummary.forEach((point, idx) => {
+      const intro = ordinalWords[idx] || `ประเด็นที่ ${idx + 1}`;
+      phrases.push(`${intro} ${point}`);
+    });
+  }
+
+  // Closing
+  phrases.push('ติดตามรายละเอียดฉบับเต็มและร่วมแสดงความคิดเห็นได้บน เทรนด์พัลส์ ครับ');
+
+  return phrases;
+}
+
 function toggleAudioReading() {
   if (state.isSpeaking) {
     stopAudioReading();
@@ -961,31 +1095,107 @@ function startAudioReading(item) {
     return;
   }
 
-  window.speechSynthesis.cancel();
+  stopAudioReading();
 
-  const textToRead = `${item.title}. สรุปประเด็นสำคัญ. ${(item.summary || []).join('. ')}`;
-  const utterance = new SpeechSynthesisUtterance(textToRead);
-  utterance.lang = item.region === 'global' ? 'en-US' : 'th-TH';
-  utterance.rate = 1.0;
+  state.currentModalItem = item;
+  state.selectedVoice = selectBestVoice(item.region || 'th');
+  const phrases = formatNewscasterScript(item);
 
-  utterance.onstart = () => {
-    state.isSpeaking = true;
-    updateAudioUI(true);
-    showToast('กำลังอ่านสรุปประเด็นด้วยเสียง...', 'info');
-  };
+  playSpeechQueue(phrases, state.selectedVoice, state.audioRate);
+  showToast('เริ่มอ่านข่าวด้วยน้ำเสียงผู้ประกาศข่าวธรรมชาติ...', 'info');
+}
 
-  utterance.onend = () => {
-    state.isSpeaking = false;
-    updateAudioUI(false);
-  };
+function playSpeechQueue(phrases, voice, rate = 0.95) {
+  if (!phrases || phrases.length === 0) {
+    stopAudioReading();
+    return;
+  }
 
-  utterance.onerror = () => {
-    state.isSpeaking = false;
-    updateAudioUI(false);
-  };
+  state.activeSpeechQueue = phrases;
+  state.speechQueueIndex = 0;
+  state.isSpeaking = true;
+  state.isAudioPaused = false;
 
-  state.synthUtterance = utterance;
-  window.speechSynthesis.speak(utterance);
+  updateAudioUI(true);
+
+  function speakNextPhrase() {
+    if (!state.isSpeaking) return;
+
+    if (state.speechQueueIndex >= state.activeSpeechQueue.length) {
+      stopAudioReading();
+      showToast('อ่านสรุปประเด็นข่าวจบเรียบร้อยแล้ว', 'info');
+      return;
+    }
+
+    const currentPhrase = state.activeSpeechQueue[state.speechQueueIndex];
+    state.speechQueueIndex++;
+
+    const utterance = new SpeechSynthesisUtterance(currentPhrase);
+    if (voice) utterance.voice = voice;
+    utterance.lang = voice ? voice.lang : (state.currentModalItem?.region === 'global' ? 'en-US' : 'th-TH');
+    utterance.rate = rate; // 0.94 - 0.96 sounds clear, articulate, and human
+    utterance.pitch = 1.02; // Warm, confident broadcast tone
+
+    utterance.onend = () => {
+      if (!state.isSpeaking || state.isAudioPaused) return;
+      // Natural respiration breath pause between sentences (140ms)
+      setTimeout(() => {
+        speakNextPhrase();
+      }, 140);
+    };
+
+    utterance.onerror = (e) => {
+      console.warn('Speech chunk error:', e);
+      if (state.isSpeaking && !state.isAudioPaused) {
+        speakNextPhrase();
+      }
+    };
+
+    state.synthUtterance = utterance;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  speakNextPhrase();
+}
+
+function toggleAudioPause() {
+  if (!('speechSynthesis' in window) || !state.isSpeaking) return;
+
+  const pauseBtn = document.getElementById('pause-btn-label');
+  const waveBars = document.getElementById('audio-wave-bars');
+
+  if (state.isAudioPaused) {
+    window.speechSynthesis.resume();
+    state.isAudioPaused = false;
+    if (pauseBtn) pauseBtn.textContent = 'พัก';
+    if (waveBars) waveBars.classList.remove('opacity-40');
+    showToast('เล่นเสียงต่อ...', 'info');
+  } else {
+    window.speechSynthesis.pause();
+    state.isAudioPaused = true;
+    if (pauseBtn) pauseBtn.textContent = 'เล่นต่อ';
+    if (waveBars) waveBars.classList.add('opacity-40');
+    showToast('พักการอ่านชั่วคราว', 'info');
+  }
+}
+
+function setAudioRate(newRate) {
+  state.audioRate = newRate;
+  ['08', '10', '12'].forEach(id => {
+    const btn = document.getElementById(`rate-btn-${id}`);
+    if (btn) btn.className = 'px-2 py-0.5 rounded text-gray-600 dark:text-gray-300';
+  });
+
+  const activeBtnId = newRate < 0.9 ? '08' : (newRate > 1.05 ? '12' : '10');
+  const activeBtn = document.getElementById(`rate-btn-${activeBtnId}`);
+  if (activeBtn) activeBtn.className = 'px-2 py-0.5 rounded bg-rose-500 text-white font-bold';
+
+  if (state.isSpeaking && state.currentModalItem) {
+    window.speechSynthesis.cancel();
+    const voice = state.selectedVoice || selectBestVoice(state.currentModalItem.region);
+    const phrases = formatNewscasterScript(state.currentModalItem);
+    playSpeechQueue(phrases, voice, state.audioRate);
+  }
 }
 
 function stopAudioReading() {
@@ -993,18 +1203,41 @@ function stopAudioReading() {
     window.speechSynthesis.cancel();
   }
   state.isSpeaking = false;
+  state.isAudioPaused = false;
+  state.activeSpeechQueue = [];
+  state.speechQueueIndex = 0;
   updateAudioUI(false);
 }
 
 function updateAudioUI(speaking) {
   const ttsLabel = document.getElementById('tts-label');
   const ttsBtn = document.getElementById('modal-tts-btn');
-  if (ttsLabel) ttsLabel.textContent = speaking ? 'หยุดฟังเสียง' : 'ฟังเสียงสรุป';
+  const playerBar = document.getElementById('modal-audio-player-bar');
+  const voiceIndicator = document.getElementById('audio-voice-indicator');
+  const nowPlayingTitle = document.getElementById('audio-now-playing-title');
+
+  if (ttsLabel) ttsLabel.textContent = speaking ? 'หยุดฟังเสียง' : 'ฟังเสียงผู้ประกาศ';
+
   if (ttsBtn) {
     if (speaking) {
       ttsBtn.classList.add('bg-rose-500', 'text-white');
     } else {
       ttsBtn.classList.remove('bg-rose-500', 'text-white');
+    }
+  }
+
+  if (playerBar) {
+    if (speaking) {
+      playerBar.classList.remove('hidden');
+      if (state.currentModalItem && nowPlayingTitle) {
+        nowPlayingTitle.textContent = state.currentModalItem.title;
+      }
+      if (voiceIndicator && state.selectedVoice) {
+        const isNatural = state.selectedVoice.name.includes('Natural') || state.selectedVoice.name.includes('Online');
+        voiceIndicator.innerHTML = `🎙️ ผู้ประกาศ: <span class="text-rose-400 font-bold">${state.selectedVoice.name.split(' - ')[0]}</span> ${isNatural ? '<span class="px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 text-[9px] font-bold">Natural Voice</span>' : ''}`;
+      }
+    } else {
+      playerBar.classList.add('hidden');
     }
   }
 }
