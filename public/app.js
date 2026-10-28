@@ -107,29 +107,81 @@ function initSearch() {
 async function loadContent(showToastNotice = false) {
   showLoading(true);
   try {
-    // 1. Fetch Curated news with latest reactions and polls
-    const curatedRes = await fetch('/api/news');
-    const curatedData = await curatedRes.json();
-    if (curatedData.status === 'success') {
-      state.curatedNews = curatedData.data;
+    let loadedCurated = false;
+    // 1. Try API first (when running on Node.js server)
+    try {
+      const curatedRes = await fetch('./api/news');
+      if (curatedRes.ok) {
+        const curatedData = await curatedRes.json();
+        if (curatedData.status === 'success' && curatedData.data) {
+          state.curatedNews = curatedData.data;
+          loadedCurated = true;
+        }
+      }
+    } catch (e) {
+      // Ignore API error when hosted on static GitHub Pages
     }
 
-    // 2. Fetch Live RSS feeds (both TH and Global)
-    const [thRssRes, globalRssRes] = await Promise.all([
-      fetch('/api/live-rss?region=th').catch(() => null),
-      fetch('/api/live-rss?region=global').catch(() => null)
-    ]);
+    // Static GitHub Pages Fallback
+    if (!loadedCurated) {
+      const fallbackRes = await fetch('./data/curated-news.json');
+      let items = await fallbackRes.json();
 
-    let liveItems = [];
-    if (thRssRes && thRssRes.ok) {
-      const thData = await thRssRes.json();
-      if (thData.data) liveItems = liveItems.concat(thData.data);
+      // Merge with localStorage custom votes & reactions if any
+      const localPolls = JSON.parse(localStorage.getItem('tp_local_polls') || '{}');
+      const localReactions = JSON.parse(localStorage.getItem('tp_local_reactions') || '{}');
+
+      items = items.map(item => {
+        const itemCopy = { ...item };
+        if (itemCopy.poll && localPolls[itemCopy.poll.id]) {
+          const pollVotes = localPolls[itemCopy.poll.id];
+          itemCopy.poll.options = itemCopy.poll.options.map(opt => ({
+            ...opt,
+            votes: pollVotes[opt.id] !== undefined ? pollVotes[opt.id] : opt.votes
+          }));
+        }
+        if (localReactions[itemCopy.id]) {
+          itemCopy.reactions = { ...itemCopy.reactions, ...localReactions[itemCopy.id] };
+        }
+        return itemCopy;
+      });
+
+      state.curatedNews = items;
     }
-    if (globalRssRes && globalRssRes.ok) {
-      const globalData = await globalRssRes.json();
-      if (globalData.data) liveItems = liveItems.concat(globalData.data);
+
+    // 2. Fetch Live RSS feeds
+    let liveLoaded = false;
+    try {
+      const [thRssRes, globalRssRes] = await Promise.all([
+        fetch('./api/live-rss?region=th').catch(() => null),
+        fetch('./api/live-rss?region=global').catch(() => null)
+      ]);
+
+      let liveItems = [];
+      if (thRssRes && thRssRes.ok) {
+        const thData = await thRssRes.json();
+        if (thData.data) liveItems = liveItems.concat(thData.data);
+      }
+      if (globalRssRes && globalRssRes.ok) {
+        const globalData = await globalRssRes.json();
+        if (globalData.data) liveItems = liveItems.concat(globalData.data);
+      }
+      if (liveItems.length > 0) {
+        state.liveNews = liveItems;
+        liveLoaded = true;
+      }
+    } catch (e) {}
+
+    // Static fallback for Live feeds on GitHub Pages
+    if (!liveLoaded) {
+      try {
+        const cacheRes = await fetch('./data/live-cache.json');
+        if (cacheRes.ok) {
+          const cachedLive = await cacheRes.json();
+          state.liveNews = cachedLive;
+        }
+      } catch (e) {}
     }
-    state.liveNews = liveItems;
 
     renderContent();
 
@@ -146,16 +198,33 @@ async function loadContent(showToastNotice = false) {
 
 // 5. Fetch Trends & Hashtags
 async function loadTrends() {
+  const defaultTrends = {
+    topHashtags: [
+      { tag: '#Bitcoin', count: '162.4K', growth: '+58%' },
+      { tag: '#TalkOfTheTown', count: '148.5K', growth: '+34%' },
+      { tag: '#นโยบายเศรษฐกิจ', count: '92.3K', growth: '+28%' },
+      { tag: '#AIRevolution', count: '85.1K', growth: '+45%' },
+      { tag: '#สมรสเท่าเทียม', count: '76.4K', growth: '+52%' },
+      { tag: '#หมูเด้ง', count: '69.8K', growth: '+15%' },
+      { tag: '#แก๊งคอลเซ็นเตอร์', count: '54.2K', growth: '+19%' },
+      { tag: '#สงครามการค้า', count: '41.0K', growth: '+22%' }
+    ]
+  };
+
   try {
-    const res = await fetch('/api/trends');
-    const json = await res.json();
-    if (json.status === 'success') {
-      state.trendsData = json.data;
-      renderHashtags(json.data.topHashtags);
+    const res = await fetch('./api/trends');
+    if (res.ok) {
+      const json = await res.json();
+      if (json.status === 'success' && json.data) {
+        state.trendsData = json.data;
+        renderHashtags(json.data.topHashtags);
+        return;
+      }
     }
-  } catch (err) {
-    console.error('Trends error:', err);
-  }
+  } catch (err) {}
+
+  state.trendsData = defaultTrends;
+  renderHashtags(defaultTrends.topHashtags);
 }
 
 function renderHashtags(tags) {
@@ -690,83 +759,114 @@ function toggleCurrentModalBookmark() {
 
 // 11. Interactive Voting
 async function votePoll(pollId, optionId) {
+  let updatedVotes = null;
   try {
-    const res = await fetch('/api/poll/vote', {
+    const res = await fetch('./api/poll/vote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pollId, optionId })
     });
-    const result = await res.json();
-    if (result.status === 'success') {
-      showToast('บันทึกคะแนนโหวตของคุณเรียบร้อยแล้ว!', 'success');
-
-      // Update in state
-      const updatePollInList = (list) => {
-        list.forEach(item => {
-          if (item.poll && item.poll.id === pollId) {
-            item.poll.options.forEach(opt => {
-              if (result.votes[opt.id] !== undefined) opt.votes = result.votes[opt.id];
-            });
-          }
-        });
-      };
-      updatePollInList(state.curatedNews);
-
-      // Re-render hero poll if active
-      const heroPollEl = document.getElementById(`hero-poll-options-${pollId}`);
-      if (heroPollEl) {
-        const item = state.curatedNews.find(n => n.poll && n.poll.id === pollId);
-        if (item && item.poll) heroPollEl.innerHTML = renderHeroPollOptions(item.poll);
-      }
-
-      // Re-render modal poll if active
-      const modalPollEl = document.getElementById(`modal-poll-options-${pollId}`);
-      if (modalPollEl) {
-        const item = state.curatedNews.find(n => n.poll && n.poll.id === pollId);
-        if (item && item.poll) modalPollEl.innerHTML = renderHeroPollOptions(item.poll);
+    if (res.ok) {
+      const result = await res.json();
+      if (result.status === 'success') {
+        updatedVotes = result.votes;
       }
     }
-  } catch (err) {
-    console.error('Vote error:', err);
-    showToast('เกิดข้อผิดพลาดในการส่งผลโหวต', 'error');
+  } catch (e) {}
+
+  // Fallback to localStorage on GitHub Pages
+  if (!updatedVotes) {
+    const localPolls = JSON.parse(localStorage.getItem('tp_local_polls') || '{}');
+    if (!localPolls[pollId]) {
+      localPolls[pollId] = {};
+      const targetItem = state.curatedNews.find(n => n.poll && n.poll.id === pollId);
+      if (targetItem && targetItem.poll) {
+        targetItem.poll.options.forEach(opt => {
+          localPolls[pollId][opt.id] = opt.votes || 0;
+        });
+      }
+    }
+    localPolls[pollId][optionId] = (localPolls[pollId][optionId] || 0) + 1;
+    localStorage.setItem('tp_local_polls', JSON.stringify(localPolls));
+    updatedVotes = localPolls[pollId];
+  }
+
+  showToast('บันทึกคะแนนโหวตของคุณเรียบร้อยแล้ว!', 'success');
+
+  // Update in state
+  state.curatedNews.forEach(item => {
+    if (item.poll && item.poll.id === pollId) {
+      item.poll.options.forEach(opt => {
+        if (updatedVotes[opt.id] !== undefined) opt.votes = updatedVotes[opt.id];
+      });
+    }
+  });
+
+  // Re-render hero poll if active
+  const heroPollEl = document.getElementById(`hero-poll-options-${pollId}`);
+  if (heroPollEl) {
+    const item = state.curatedNews.find(n => n.poll && n.poll.id === pollId);
+    if (item && item.poll) heroPollEl.innerHTML = renderHeroPollOptions(item.poll);
+  }
+
+  // Re-render modal poll if active
+  const modalPollEl = document.getElementById(`modal-poll-options-${pollId}`);
+  if (modalPollEl) {
+    const item = state.curatedNews.find(n => n.poll && n.poll.id === pollId);
+    if (item && item.poll) modalPollEl.innerHTML = renderHeroPollOptions(item.poll);
   }
 }
 
 // 12. Interactive Reactions
 async function handleReaction(newsId, type) {
+  let updatedReactions = null;
   try {
-    const res = await fetch('/api/reaction', {
+    const res = await fetch('./api/reaction', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ newsId, type })
     });
-    const result = await res.json();
-    if (result.status === 'success') {
-      // Update item in state
-      const item = state.curatedNews.find(n => n.id === newsId) || state.liveNews.find(n => n.id === newsId);
-      if (item) {
-        item.reactions = result.reactions;
+    if (res.ok) {
+      const result = await res.json();
+      if (result.status === 'success') {
+        updatedReactions = result.reactions;
       }
-
-      // Update card UI
-      const countEl = document.getElementById(`react-${type}-${newsId}`);
-      if (countEl) {
-        countEl.textContent = result.reactions[type];
-        countEl.classList.add('scale-125', 'text-rose-500');
-        setTimeout(() => countEl.classList.remove('scale-125', 'text-rose-500'), 300);
-      }
-
-      // Update modal UI if open
-      const modalCountEl = document.getElementById(`modal-react-${type}`);
-      if (modalCountEl && state.currentModalItem?.id === newsId) {
-        modalCountEl.textContent = result.reactions[type];
-      }
-
-      showToast(`ขอบคุณสำหรับการส่งอารมณ์ความรู้สึก!`, 'info');
     }
-  } catch (err) {
-    console.error('Reaction error:', err);
+  } catch (e) {}
+
+  // Fallback to localStorage on GitHub Pages
+  if (!updatedReactions) {
+    const localReactions = JSON.parse(localStorage.getItem('tp_local_reactions') || '{}');
+    const item = state.curatedNews.find(n => n.id === newsId) || state.liveNews.find(n => n.id === newsId);
+    if (!localReactions[newsId]) {
+      localReactions[newsId] = { ...(item?.reactions || { fire: 0, clap: 0, idea: 0, sad: 0 }) };
+    }
+    localReactions[newsId][type] = (localReactions[newsId][type] || 0) + 1;
+    localStorage.setItem('tp_local_reactions', JSON.stringify(localReactions));
+    updatedReactions = localReactions[newsId];
   }
+
+  // Update item in state
+  const item = state.curatedNews.find(n => n.id === newsId) || state.liveNews.find(n => n.id === newsId);
+  if (item) {
+    item.reactions = updatedReactions;
+  }
+
+  // Update card UI
+  const countEl = document.getElementById(`react-${type}-${newsId}`);
+  if (countEl) {
+    countEl.textContent = updatedReactions[type];
+    countEl.classList.add('scale-125', 'text-rose-500');
+    setTimeout(() => countEl.classList.remove('scale-125', 'text-rose-500'), 300);
+  }
+
+  // Update modal UI if open
+  const modalCountEl = document.getElementById(`modal-react-${type}`);
+  if (modalCountEl && state.currentModalItem?.id === newsId) {
+    modalCountEl.textContent = updatedReactions[type];
+  }
+
+  showToast(`ขอบคุณสำหรับการส่งอารมณ์ความรู้สึก!`, 'info');
 }
 
 // 13. Bookmark System
@@ -952,20 +1052,21 @@ async function submitSuggestion(e) {
   const reason = document.getElementById('sug-reason').value;
 
   try {
-    const res = await fetch('/api/suggest-news', {
+    await fetch('./api/suggest-news', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, region, category, url, reason })
     });
-    const data = await res.json();
-    if (data.status === 'success') {
-      showToast('ส่งข้อเสนอประเด็นร้อนสำเร็จ! ขอบคุณที่ช่วยเกาะติดกระแส', 'success');
-      closeSuggestModal();
-      document.getElementById('suggest-form').reset();
-    }
-  } catch (err) {
-    showToast('เกิดข้อผิดพลาดในการส่งข้อเสนอ', 'error');
-  }
+  } catch (err) {}
+
+  // LocalStorage backup for GitHub Pages
+  const localSug = JSON.parse(localStorage.getItem('tp_local_suggestions') || '[]');
+  localSug.unshift({ id: `sug-${Date.now()}`, title, region, category, url, reason, date: new Date().toISOString() });
+  localStorage.setItem('tp_local_suggestions', JSON.stringify(localSug));
+
+  showToast('ส่งข้อเสนอประเด็นร้อนสำเร็จ! ขอบคุณที่ช่วยเกาะติดกระแส', 'success');
+  closeSuggestModal();
+  document.getElementById('suggest-form').reset();
 }
 
 // 18. Filters and View Switchers

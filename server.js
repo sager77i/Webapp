@@ -417,13 +417,14 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Static File Serving
-  let filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
-
-  // Security: prevent directory traversal
-  if (!filePath.startsWith(PUBLIC_DIR)) {
-    res.writeHead(403);
-    res.end('Forbidden');
-    return;
+  let filePath;
+  if (pathname.startsWith('/data/')) {
+    filePath = path.join(__dirname, pathname);
+  } else {
+    filePath = path.join(PUBLIC_DIR, pathname === '/' ? 'index.html' : pathname);
+    if (!fs.existsSync(filePath)) {
+      filePath = path.join(__dirname, pathname === '/' ? 'index.html' : pathname);
+    }
   }
 
   fs.stat(filePath, (err, stats) => {
