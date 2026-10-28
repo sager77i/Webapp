@@ -362,6 +362,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === '/api/trends' && req.method === 'GET') {
       const trends = {
         topHashtags: [
+          { tag: '#Bitcoin', count: '162.4K', growth: '+58%' },
           { tag: '#TalkOfTheTown', count: '148.5K', growth: '+34%' },
           { tag: '#นโยบายเศรษฐกิจ', count: '92.3K', growth: '+28%' },
           { tag: '#AIRevolution', count: '85.1K', growth: '+45%' },
