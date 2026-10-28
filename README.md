@@ -1,14 +1,15 @@
 # 🔥 TRENDPULSE (กระแสเมือง) - Talk of The Town Webapp
 
 > **เว็บแอปพลิเคชันเกาะติดข่าวสารและประเด็นร้อน Talk of The Town ทั้งในประเทศไทย 🇹🇭 และต่างประเทศ 🌍**  
-> 🌐 **Live Demo (GitHub Pages):** [https://sager77i.github.io/Webapp/](https://sager77i.github.io/Webapp/)
+> 🌐 **Live Website:** [https://news.sager.app](https://news.sager.app) *(สำรอง: https://sager77i.github.io/Webapp/)*
 
 ---
 
 ## 🚀 การ Deploy ผ่าน GitHub Pages (Live Website)
 
-เว็บแอปพลิเคชันนี้รองรับการเปิดใช้งานบน **GitHub Pages** ได้ทันที 100%:
-- URL เว็บไซต์: 👉 **`https://sager77i.github.io/Webapp/`**
+เว็บแอปพลิเคชันนี้รองรับการเปิดใช้งานบน **GitHub Pages & Custom Domain** ได้ทันที 100%:
+- URL เว็บไซต์: 👉 **`https://news.sager.app`**
+- Custom Subdomain: `news.sager.app` (CNAME ชี้ไปที่ `sager77i.github.io`)
 - มี GitHub Actions Workflow (`.github/workflows/deploy-pages.yml`) ติดตั้งพร้อม deploy อัตโนมัติทุกครั้งที่ push ขึ้น `main`
 
 ### วิธีเปิดใช้งาน GitHub Pages บน GitHub Repository:
