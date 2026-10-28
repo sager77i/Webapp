@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TRENDPULSE | เจาะประเด็นร้อน Talk of The Town ไทย-เทศ</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#fff1f2',
+              100: '#ffe4e6',
+              500: '#f43f5e',
+              600: '#e11d48',
+              700: '#be123c',
+            },
+            darkbg: '#0b0f19',
+            darkcard: '#131b2e',
+            darkborder: '#1e293b'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="bg-gray-50 text-gray-900 dark:bg-darkbg dark:text-gray-100 min-h-screen flex flex-col antialiased selection:bg-rose-500 selection:text-white">
+
+  <!-- 1. Breaking News Ticker -->
+  <div class="bg-gradient-to-r from-rose-700 via-rose-600 to-amber-600 text-white text-xs sm:text-sm font-medium py-2 px-3 shadow-md relative z-30">
+    <div class="max-w-7xl mx-auto flex items-center gap-3">
+      <div class="flex items-center gap-1.5 font-bold uppercase tracking-wider bg-black/30 px-2.5 py-0.5 rounded-full text-[11px] whitespace-nowrap">
+        <span class="w-2 h-2 rounded-full bg-yellow-300 animate-ping"></span>
+        <span>BREAKING</span>
+      </div>
+      <div class="marquee-container flex-1">
+        <div class="marquee-content flex items-center gap-8 text-rose-100" id="ticker-content">
+          <span>🔥 ทอล์กออฟเดอะทาวน์ไทย: ผลกระทบและแนวโน้มการกระตุ้นเศรษฐกิจดิจิทัล</span>
+          <span>🌍 ทอล์กออฟเดอะทาวน์โลก: ศึกการแข่งขันพัฒนา Generative AI และชิปเซมิคอนดักเตอร์</span>
+          <span>⚡ สังคมไทย: ปฏิบัติการร่วมกวาดล้างเสาสัญญาณแก๊งคอลเซ็นเตอร์แนวชายแดน</span>
+          <span>🏳️‍🌈 ประวัติศาสตร์อาเซียน: เริ่มมีผลบังคับใช้ พ.ร.บ. สมรสเท่าเทียม ฉบับสมบูรณ์</span>
+          <span>🐾 ฟีเวอร์ระดับโลก: กระแสหมูเด้ง ฮิปโปแคระขวัญใจคนทั่วโลกยอดวิวทะลุร้อยล้าน</span>
+        </div>
+      </div>
+      <div class="hidden sm:flex items-center gap-2 text-xs text-rose-200">
+        <i class="fa-solid fa-clock"></i>
+        <span id="live-clock">อัปเดตสด</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Main Navigation Bar -->
+  <header class="sticky top-0 z-40 glass border-b border-gray-200/80 dark:border-darkborder transition-colors">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 py-3 flex items-center justify-between gap-4">
+      
+      <!-- Brand Logo -->
+      <a href="#" onclick="switchMainView('curated'); return false;" class="flex items-center gap-3 group">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center text-white shadow-lg shadow-rose-500/30 group-hover:scale-105 transition-transform">
+          <i class="fa-solid fa-fire-flame-curved text-xl"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5 font-black text-xl tracking-tight leading-none font-heading">
+            <span class="bg-gradient-to-r from-rose-600 to-amber-500 bg-clip-text text-transparent">TREND</span><span>PULSE</span>
+            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/30">HOT</span>
+          </div>
+          <p class="text-[11px] text-gray-500 dark:text-gray-400 font-medium">เกาะติด Talk of The Town ไทย-เทศ</p>
+        </div>
+      </a>
+
+      <!-- Search Input (Desktop) -->
+      <div class="hidden md:flex flex-1 max-w-md relative mx-4">
+        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"></i>
+        <input 
+          type="text" 
+          id="search-input" 
+          placeholder="ค้นหาประเด็นร้อน, บุคคล, นโยบาย, แฮชแท็ก..." 
+          class="w-full pl-10 pr-9 py-2 bg-gray-100 dark:bg-slate-800/80 border border-gray-300 dark:border-slate-700 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-rose-500 transition-all"
+        >
+        <button id="clear-search-btn" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+          <i class="fa-solid fa-circle-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Bookmark Nav Button -->
+        <button onclick="switchMainView('bookmarks')" title="ข่าวที่บันทึกไว้" class="relative p-2.5 rounded-full hover:bg-gray-200 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-300 transition-colors">
+          <i class="fa-solid fa-bookmark text-base"></i>
+          <span id="bookmark-badge" class="hidden absolute -top-1 -right-1 w-5 h-5 bg-rose-600 text-white rounded-full text-[10px] font-bold flex items-center justify-center">0</span>
+        </button>
+
+        <!-- Live RSS Refresh -->
+        <button onclick="loadContent(true)" title="รีเฟรชข่าวสารสด" class="p-2.5 rounded-full hover:bg-gray-200 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-300 transition-colors group">
+          <i class="fa-solid fa-rotate-right text-base group-hover:rotate-180 transition-transform duration-500"></i>
+        </button>
+
+        <!-- Suggest Hot Topic -->
+        <button onclick="openSuggestModal()" class="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white text-xs font-semibold shadow-md shadow-rose-500/20 transition-all hover:scale-105">
+          <i class="fa-solid fa-plus"></i>
+          <span>เสนอประเด็น</span>
+        </button>
+
+        <!-- Theme Toggle -->
+        <button id="theme-toggle" class="p-2.5 rounded-full hover:bg-gray-200 dark:hover:bg-slate-800 text-gray-700 dark:text-gray-300 transition-colors" title="สลับธีม">
+          <i class="fa-solid fa-sun text-base hidden dark:inline"></i>
+          <i class="fa-solid fa-moon text-base inline dark:hidden"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Search Bar -->
+    <div class="md:hidden px-4 pb-2.5">
+      <div class="relative">
+        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"></i>
+        <input 
+          type="text" 
+          id="search-input-mobile" 
+          placeholder="ค้นหาประเด็น Talk of The Town..." 
+          class="w-full pl-10 pr-4 py-1.5 bg-gray-100 dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-full text-xs focus:outline-none focus:ring-2 focus:ring-rose-500"
+        >
+      </div>
+    </div>
+  </header>
+
+  <!-- 3. Navigation View Switcher (Hero Tabs) -->
+  <nav class="bg-white dark:bg-darkcard border-b border-gray-200 dark:border-darkborder shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between overflow-x-auto no-scrollbar py-2 gap-4">
+        
+        <!-- Main Mode Views -->
+        <div class="flex items-center gap-1 sm:gap-2">
+          <button onclick="switchMainView('curated')" id="nav-btn-curated" class="nav-tab active flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all">
+            <i class="fa-solid fa-fire text-rose-500"></i>
+            <span>Talk of The Town คัดสรร</span>
+          </button>
+
+          <button onclick="switchMainView('live')" id="nav-btn-live" class="nav-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800">
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span>สตรีมข่าวสด RSS</span>
+          </button>
+
+          <button onclick="switchMainView('polls')" id="nav-btn-polls" class="nav-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800">
+            <i class="fa-solid fa-square-poll-vertical text-indigo-400"></i>
+            <span>โพลมหาชน</span>
+          </button>
+
+          <button onclick="switchMainView('bookmarks')" id="nav-btn-bookmarks" class="nav-tab flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800">
+            <i class="fa-solid fa-bookmark text-amber-500"></i>
+            <span>บันทึกไว้</span>
+          </button>
+        </div>
+
+        <!-- Quick Region Filter Buttons -->
+        <div class="flex items-center gap-1 bg-gray-100 dark:bg-slate-800/90 p-1 rounded-xl text-xs font-medium">
+          <button onclick="setRegionFilter('all')" id="region-btn-all" class="region-pill active-pill px-3 py-1 rounded-lg transition-all">ทั้งหมด</button>
+          <button onclick="setRegionFilter('th')" id="region-btn-th" class="region-pill px-3 py-1 rounded-lg transition-all flex items-center gap-1">
+            <span>🇹🇭 ไทย</span>
+          </button>
+          <button onclick="setRegionFilter('global')" id="region-btn-global" class="region-pill px-3 py-1 rounded-lg transition-all flex items-center gap-1">
+            <span>🌍 ต่างประเทศ</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </nav>
+
+  <!-- 4. Trending Hashtags Banner -->
+  <div class="bg-gray-100 dark:bg-slate-900/60 border-b border-gray-200 dark:border-slate-800/80 py-2.5">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-3 overflow-x-auto no-scrollbar">
+      <span class="text-xs font-bold text-gray-500 dark:text-gray-400 flex items-center gap-1.5 whitespace-nowrap">
+        <i class="fa-solid fa-arrow-trend-up text-rose-500"></i> เทรนด์ฮิต:
+      </span>
+      <div id="hashtag-bar" class="flex items-center gap-2 text-xs">
+        <!-- Dynamic hashtags loaded via JS -->
+        <span class="animate-pulse text-gray-400">กำลังโหลดเทรนด์ฮิต...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+
+    <!-- 5. Hero Spotlight Section (Curated View Only) -->
+    <section id="hero-section" class="relative">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-md bg-rose-500 text-white text-xs font-black tracking-wide uppercase flex items-center gap-1 flame-glow">
+            <i class="fa-solid fa-fire"></i> TALK OF THE TOWN #1
+          </span>
+          <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">ประเด็นร้อนสะเทือนเมืองประจำวัน</span>
+        </div>
+        <!-- Spotlight Switcher (Thai vs Global Hero) -->
+        <div class="flex items-center gap-1 text-xs">
+          <button onclick="toggleHeroSpotlight('th')" id="hero-tab-th" class="px-2.5 py-1 rounded-md bg-rose-500 text-white font-semibold transition-all">🇹🇭 ไทย</button>
+          <button onclick="toggleHeroSpotlight('global')" id="hero-tab-global" class="px-2.5 py-1 rounded-md bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 font-semibold transition-all">🌍 ต่างประเทศ</button>
+        </div>
+      </div>
+
+      <!-- Hero Card Container -->
+      <div id="hero-card-container">
+        <!-- Rendered dynamically via JS -->
+      </div>
+    </section>
+
+    <!-- 6. Filter & Category Bar -->
+    <section class="space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-200 dark:border-darkborder pb-4">
+        
+        <!-- Category Filter Pills -->
+        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1" id="category-pills">
+          <button onclick="setCategoryFilter('all')" class="cat-pill active-cat px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all">ทั้งหมด</button>
+          <button onclick="setCategoryFilter('การเมือง')" class="cat-pill px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all">🏛️ การเมือง</button>
+          <button onclick="setCategoryFilter('เศรษฐกิจ')" class="cat-pill px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all">📈 เศรษฐกิจ</button>
+          <button onclick="setCategoryFilter('สังคม')" class="cat-pill px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all">👥 สังคม/ไวรัล</button>
+          <button onclick="setCategoryFilter('เทคโนโลยี')" class="cat-pill px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all">🤖 เทคโนโลยี & AI</button>
+          <button onclick="setCategoryFilter('สิ่งแวดล้อม')" class="cat-pill px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all">🌱 สิ่งแวดล้อม</button>
+          <button onclick="setCategoryFilter('บันเทิง')" class="cat-pill px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all">🎬 บันเทิง</button>
+        </div>
+
+        <!-- Sort and Stats -->
+        <div class="flex items-center justify-between sm:justify-end gap-3 text-xs">
+          <div class="text-gray-500 dark:text-gray-400">
+            แสดง <span id="news-count" class="font-bold text-rose-500">0</span> ประเด็น
+          </div>
+          <div class="flex items-center gap-1.5 bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-lg px-2.5 py-1">
+            <i class="fa-solid fa-arrow-down-wide-short text-gray-400"></i>
+            <select id="sort-select" onchange="onSortChange(this.value)" class="bg-transparent text-gray-700 dark:text-gray-300 font-medium focus:outline-none cursor-pointer">
+              <option value="buzz">ดัชนีความร้อนแรง 🔥</option>
+              <option value="latest">อัปเดตล่าสุด 🕒</option>
+              <option value="views">ยอดการเปิดอ่าน 👁️</option>
+            </select>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 7. News Cards Grid -->
+    <section>
+      <!-- Grid -->
+      <div id="news-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="empty-state" class="hidden text-center py-16 px-4">
+        <div class="w-20 h-20 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto text-3xl mb-4">
+          <i class="fa-solid fa-newspaper"></i>
+        </div>
+        <h3 class="text-lg font-bold mb-1">ไม่พบข่าวสารที่ตรงกับเงื่อนไข</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-4">ลองเปลี่ยนคำค้นหา หรือเลือกหมวดหมู่อื่นเพื่อดูประเด็นร้อนที่น่าสนใจ</p>
+        <button onclick="resetFilters()" class="px-4 py-2 rounded-lg bg-rose-500 text-white text-xs font-semibold hover:bg-rose-600 transition-colors">
+          ล้างตัวกรองทั้งหมด
+        </button>
+      </div>
+
+      <!-- Loading State -->
+      <div id="loading-state" class="text-center py-16">
+        <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-rose-500 border-t-transparent mb-3"></div>
+        <p class="text-sm text-gray-500 dark:text-gray-400 font-medium">กำลังรวบรวมข้อมูล Talk of The Town ล่าสุด...</p>
+      </div>
+    </section>
+
+    <!-- 8. Sentiment & Public Buzz Overview Section -->
+    <section class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl p-6 shadow-sm">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 class="text-lg font-bold flex items-center gap-2">
+            <i class="fa-solid fa-chart-pie text-rose-500"></i>
+            <span>มิติมุมมอง & อุณหภูมิความคิดเห็นมหาชน (Social Sentiment)</span>
+          </h2>
+          <p class="text-xs text-gray-500 dark:text-gray-400">การวิเคราะห์ความรู้สึกและสถิติการพูดถึงบนโลกออนไลน์ใน 24 ชั่วโมงล่าสุด</p>
+        </div>
+        <div class="flex items-center gap-4 text-xs font-medium">
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+            <span>เชิงบวก (Positive) 46%</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-full bg-slate-400"></span>
+            <span>เป็นกลาง (Neutral) 34%</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+            <span>เชิงวิพากษ์ (Critical) 20%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sentiment Progress Bar -->
+      <div class="w-full h-3.5 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden flex shadow-inner mb-6">
+        <div class="bg-emerald-500 h-full transition-all duration-1000" style="width: 46%" title="แง่บวก 46%"></div>
+        <div class="bg-slate-400 h-full transition-all duration-1000" style="width: 34%" title="เป็นกลาง 34%"></div>
+        <div class="bg-rose-500 h-full transition-all duration-1000" style="width: 20%" title="เชิงวิพากษ์ 20%"></div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t border-gray-100 dark:border-slate-800 text-center">
+        <div class="p-3 bg-gray-50 dark:bg-slate-800/40 rounded-xl">
+          <div class="text-2xl font-black text-rose-500">1.43M+</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">การพูดถึงบนโซเชียลวันนี้</div>
+        </div>
+        <div class="p-3 bg-gray-50 dark:bg-slate-800/40 rounded-xl">
+          <div class="text-2xl font-black text-amber-500">98.5%</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">ระดับกระแสสูงสุด (Peak Buzz)</div>
+        </div>
+        <div class="p-3 bg-gray-50 dark:bg-slate-800/40 rounded-xl">
+          <div class="text-2xl font-black text-indigo-500">18 เรื่อง</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">ประเด็นร้อนที่กำลังเกาะติด</div>
+        </div>
+        <div class="p-3 bg-gray-50 dark:bg-slate-800/40 rounded-xl">
+          <div class="text-2xl font-black text-emerald-500">24/7</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">อัปเดตแบบเรียลไทม์</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 9. Deep-Dive Article Modal -->
+  <div id="article-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-black/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 transition-all">
+    <div class="relative bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-3xl max-w-3xl w-full shadow-2xl overflow-hidden my-8 max-h-[90vh] flex flex-col">
+      
+      <!-- Modal Header Bar -->
+      <div class="p-4 sm:p-6 border-b border-gray-200 dark:border-darkborder flex items-center justify-between sticky top-0 bg-white/95 dark:bg-darkcard/95 backdrop-blur z-20">
+        <div class="flex items-center gap-2">
+          <span id="modal-region-badge" class="px-2.5 py-0.5 rounded text-[11px] font-bold"></span>
+          <span id="modal-category-badge" class="px-2.5 py-0.5 rounded bg-gray-100 dark:bg-slate-800 text-[11px] font-semibold text-gray-600 dark:text-gray-300"></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <!-- Audio TTS Button -->
+          <button id="modal-tts-btn" onclick="toggleAudioReading()" class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white text-xs font-semibold transition-all">
+            <i class="fa-solid fa-volume-high"></i>
+            <span id="tts-label">ฟังเสียงสรุป</span>
+          </button>
+          <!-- Bookmark in Modal -->
+          <button id="modal-bookmark-btn" onclick="toggleCurrentModalBookmark()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-500 transition-colors">
+            <i class="fa-regular fa-bookmark"></i>
+          </button>
+          <!-- Close Button -->
+          <button onclick="closeArticleModal()" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 text-gray-500 hover:text-gray-800 dark:hover:text-white transition-colors">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Modal Body Content -->
+      <div class="overflow-y-auto p-4 sm:p-6 space-y-6 flex-1 text-sm leading-relaxed" id="modal-content-area">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Modal Footer Action Bar -->
+      <div class="p-4 border-t border-gray-200 dark:border-darkborder bg-gray-50 dark:bg-slate-900/50 flex flex-wrap items-center justify-between gap-3">
+        <!-- Reactions -->
+        <div class="flex items-center gap-1.5 sm:gap-2" id="modal-reactions-container">
+          <!-- Emoji reactions -->
+        </div>
+
+        <!-- Share and Source Link -->
+        <div class="flex items-center gap-2">
+          <button onclick="shareArticle('copy')" class="p-2 rounded-lg bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 dark:hover:bg-slate-700 text-xs transition-colors" title="คัดลอกลิงก์">
+            <i class="fa-solid fa-link"></i>
+          </button>
+          <button onclick="shareArticle('x')" class="p-2 rounded-lg bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 dark:hover:bg-slate-700 text-xs transition-colors" title="แชร์บน X">
+            <i class="fa-brands fa-x-twitter"></i>
+          </button>
+          <button onclick="shareArticle('line')" class="p-2 rounded-lg bg-green-500 hover:bg-green-600 text-white text-xs transition-colors" title="แชร์บน Line">
+            <i class="fa-brands fa-line text-sm"></i>
+          </button>
+          <a id="modal-source-link" href="#" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-semibold transition-colors">
+            <span>ไปยังสำนักข่าวต้นทาง</span>
+            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 10. Suggest Hot Topic Modal -->
+  <div id="suggest-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-base font-bold flex items-center gap-2">
+          <i class="fa-solid fa-lightbulb text-amber-500"></i>
+          <span>เสนอประเด็นร้อน Talk of The Town</span>
+        </h3>
+        <button onclick="closeSuggestModal()" class="text-gray-400 hover:text-gray-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <p class="text-xs text-gray-500 dark:text-gray-400">
+        เห็นประเด็นไหนกำลังเป็นกระแสในไทยหรือต่างประเทศ? เสนอเข้ามาเพื่อให้ทีมงานและระบบติดตามสถานการณ์แบบเรียลไทม์
+      </p>
+
+      <form id="suggest-form" onsubmit="submitSuggestion(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold mb-1">หัวข้อประเด็นร้อน *</label>
+          <input type="text" id="sug-title" required placeholder="เช่น ดราม่าแอปพลิเคชัน, การประชุมผู้นำโลก..." class="w-full p-2.5 rounded-lg bg-gray-50 dark:bg-slate-800 border border-gray-300 dark:border-slate-700 focus:ring-2 focus:ring-rose-500 focus:outline-none">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold mb-1">ภูมิภาค *</label>
+            <select id="sug-region" class="w-full p-2.5 rounded-lg bg-gray-50 dark:bg-slate-800 border border-gray-300 dark:border-slate-700 focus:outline-none">
+              <option value="th">🇹🇭 ไทย (Thailand)</option>
+              <option value="global">🌍 ต่างประเทศ (Global)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-semibold mb-1">หมวดหมู่ *</label>
+            <select id="sug-category" class="w-full p-2.5 rounded-lg bg-gray-50 dark:bg-slate-800 border border-gray-300 dark:border-slate-700 focus:outline-none">
+              <option value="เศรษฐกิจ">เศรษฐกิจ</option>
+              <option value="การเมือง">การเมือง</option>
+              <option value="สังคม">สังคม/ไวรัล</option>
+              <option value="เทคโนโลยี">เทคโนโลยี</option>
+              <option value="สิ่งแวดล้อม">สิ่งแวดล้อม</option>
+              <option value="บันเทิง">บันเทิง</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">ลิงก์ข่าวหรือแหล่งอ้างอิง (ถ้ามี)</label>
+          <input type="url" id="sug-url" placeholder="https://..." class="w-full p-2.5 rounded-lg bg-gray-50 dark:bg-slate-800 border border-gray-300 dark:border-slate-700 focus:outline-none">
+        </div>
+        <div>
+          <label class="block font-semibold mb-1">ทำไมเรื่องนี้ถึงเป็น Talk of The Town? *</label>
+          <textarea id="sug-reason" rows="3" required placeholder="อธิบายสั้นๆ ว่าเหตุใดคนจึงให้ความสนใจหรือพูดถึงกันมาก..." class="w-full p-2.5 rounded-lg bg-gray-50 dark:bg-slate-800 border border-gray-300 dark:border-slate-700 focus:ring-2 focus:ring-rose-500 focus:outline-none"></textarea>
+        </div>
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeSuggestModal()" class="px-4 py-2 rounded-lg bg-gray-200 dark:bg-slate-800 hover:bg-gray-300 font-semibold">ยกเลิก</button>
+          <button type="submit" class="px-5 py-2 rounded-lg bg-rose-500 hover:bg-rose-600 text-white font-semibold flex items-center gap-1.5 shadow-md shadow-rose-500/30">
+            <i class="fa-solid fa-paper-plane"></i> ส่งข้อเสนอ
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 11. Toast Notifications -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 space-y-2 pointer-events-none"></div>
+
+  <!-- 12. Footer -->
+  <footer class="mt-auto border-t border-gray-200 dark:border-darkborder bg-white dark:bg-darkcard py-8 text-xs text-gray-500 dark:text-gray-400">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center text-white font-black">
+          <i class="fa-solid fa-fire text-sm"></i>
+        </div>
+        <div>
+          <span class="font-bold text-gray-800 dark:text-gray-200 text-sm">TRENDPULSE | เจาะประเด็นร้อนไทย-เทศ</span>
+          <p class="text-[11px]">ระบบเกาะติดข่าวสารและประเด็นร้อน Talk of The Town แบบเรียลไทม์ 24 ชม.</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center justify-center gap-4 text-[11px]">
+        <span class="flex items-center gap-1"><i class="fa-solid fa-shield-halved text-rose-500"></i> แหล่งข่าวเชื่อถือได้</span>
+        <span>•</span>
+        <span class="flex items-center gap-1"><i class="fa-solid fa-bolt text-amber-500"></i> AI Executive Summary</span>
+        <span>•</span>
+        <span class="flex items-center gap-1"><i class="fa-solid fa-square-poll-vertical text-indigo-400"></i> Live Public Poll</span>
+      </div>
+      <div>
+        <p class="text-[11px] text-center md:text-right">© 2026 TRENDPULSE. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- App Script -->
+  <script src="/app.js"></script>
+</body>
+</html>
+

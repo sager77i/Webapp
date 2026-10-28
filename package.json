@@ -1,0 +1,21 @@
+{
+  "name": "talk-of-the-town-webapp",
+  "version": "1.0.0",
+  "description": "เว็บแอปพลิเคชันเกาะติดข่าวสารและประเด็นร้อน Talk of The Town ของไทยและต่างประเทศ",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "news",
+    "talk-of-the-town",
+    "trending",
+    "thailand-news",
+    "world-news",
+    "rss-feed"
+  ],
+  "author": "Antigravity Developer",
+  "license": "MIT"
+}

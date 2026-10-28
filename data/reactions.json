@@ -1,0 +1,50 @@
+{
+  "th-hot-1": {
+    "fire": 2341,
+    "clap": 920,
+    "idea": 810,
+    "sad": 340
+  },
+  "global-hot-1": {
+    "fire": 3150,
+    "clap": 1420,
+    "idea": 1840,
+    "sad": 210
+  },
+  "th-hot-2": {
+    "fire": 1820,
+    "clap": 2100,
+    "idea": 640,
+    "sad": 190
+  },
+  "global-hot-2": {
+    "fire": 1420,
+    "clap": 680,
+    "idea": 950,
+    "sad": 410
+  },
+  "th-hot-3": {
+    "fire": 4510,
+    "clap": 3890,
+    "idea": 1200,
+    "sad": 45
+  },
+  "global-hot-3": {
+    "fire": 1120,
+    "clap": 890,
+    "idea": 1450,
+    "sad": 620
+  },
+  "th-hot-4": {
+    "fire": 6200,
+    "clap": 4900,
+    "idea": 850,
+    "sad": 15
+  },
+  "global-hot-4": {
+    "fire": 2100,
+    "clap": 1780,
+    "idea": 1590,
+    "sad": 30
+  }
+}
