@@ -15,6 +15,8 @@ const state = {
   liveNews: [],
   trendsData: null,
   bookmarks: JSON.parse(localStorage.getItem('tp_bookmarks') || '[]'),
+  fontSize: localStorage.getItem('tp_font_size') || 'normal',
+  lastUpdated: Date.now(),
   currentModalItem: null,
   isSpeaking: false,
   isAudioPaused: false,
@@ -29,7 +31,9 @@ const state = {
 // DOM Ready
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
+  initFontSize();
   initLiveClock();
+  initLiveAutoRefresh();
   initSearch();
   initVoiceEngine();
   loadContent();
@@ -55,6 +59,77 @@ function initTheme() {
       showToast(`เปลี่ยนเป็นโหมด ${isDark ? 'มืด (Dark)' : 'สว่าง (Light)'}`, 'info');
     });
   }
+}
+
+
+// 1.1 Font Size Scaler (ตัวหนังสือใหญ่อ่านออกง่าย)
+function initFontSize() {
+  const savedSize = localStorage.getItem('tp_font_size') || 'normal';
+  setFontSize(savedSize, false);
+}
+
+function setFontSize(size, notify = true) {
+  state.fontSize = size;
+  document.documentElement.setAttribute('data-font-size', size);
+  localStorage.setItem('tp_font_size', size);
+
+  ['normal', 'large', 'xlarge'].forEach(s => {
+    const btn = document.getElementById(`font-btn-${s}`);
+    if (btn) {
+      if (s === size) {
+        btn.className = 'px-2.5 py-1 rounded-lg font-bold text-xs transition-all text-white bg-rose-500 shadow-sm';
+      } else {
+        btn.className = 'px-2.5 py-1 rounded-lg font-bold text-xs transition-all text-gray-600 dark:text-gray-300 hover:text-rose-500';
+      }
+    }
+  });
+
+  if (notify) {
+    const labels = {
+      normal: 'ขนาดปกติ (16px)',
+      large: 'ขนาดใหญ่ (18.5px)',
+      xlarge: 'ขนาดใหญ่พิเศษ (21px)'
+    };
+    showToast(`ปรับขนาดตัวหนังสือ: ${labels[size] || size}`, 'info');
+  }
+}
+
+// 1.2 Real-time Live Auto-Refresh Controller (อัปเดตทันสมัยตลอดเวลา)
+function initLiveAutoRefresh() {
+  updateAutoRefreshPill();
+  setInterval(updateAutoRefreshPill, 10000);
+
+  // Auto-refresh feeds every 60 seconds silently in background
+  setInterval(() => {
+    loadContent(false, true);
+  }, 60000);
+}
+
+function updateAutoRefreshPill() {
+  const statusEl = document.getElementById('auto-refresh-status');
+  if (!statusEl) return;
+  const elapsedSec = Math.floor((Date.now() - (state.lastUpdated || Date.now())) / 1000);
+  let text = 'อัปเดตสดเมื่อสักครู่';
+  if (elapsedSec >= 60) {
+    const min = Math.floor(elapsedSec / 60);
+    text = `อัปเดตสดเมื่อ ${min} นาทีที่แล้ว`;
+  } else if (elapsedSec > 10) {
+    text = `อัปเดตสดเมื่อ ${elapsedSec} วินาทีที่แล้ว`;
+  }
+  statusEl.textContent = `🟢 ${text}`;
+}
+
+function updateLiveTicker() {
+  const tickerEl = document.getElementById('ticker-content');
+  if (!tickerEl) return;
+  const allItems = [...state.curatedNews, ...state.liveNews];
+  if (allItems.length === 0) return;
+
+  const topItems = allItems.slice(0, 8);
+  tickerEl.innerHTML = topItems.map(item => {
+    const icon = item.category === 'เศรษฐกิจ' ? '📈' : item.category === 'เทคโนโลยี' ? '🤖' : item.category === 'การเมือง' ? '🏛️' : item.category === 'สิ่งแวดล้อม' ? '🌱' : '🔥';
+    return `<span>${icon} [${item.region === 'th' ? 'ไทย' : 'โลก'}] ${item.title}</span>`;
+  }).join('');
 }
 
 // 2. Real-time Live Clock
@@ -111,8 +186,13 @@ function initSearch() {
 }
 
 // 4. Data Fetching
-async function loadContent(showToastNotice = false) {
-  showLoading(true);
+async function loadContent(showToastNotice = false, isSilent = false) {
+  const refreshIcon = document.getElementById('refresh-icon');
+  if (refreshIcon) refreshIcon.classList.add('animate-spin');
+  if (!isSilent) showLoading(true);
+
+  const prevCuratedIds = new Set(state.curatedNews.map(n => n.id));
+  const prevLiveIds = new Set(state.liveNews.map(n => n.id));
   try {
     let loadedCurated = false;
     // 1. Try API first (when running on Node.js server)
@@ -192,14 +272,24 @@ async function loadContent(showToastNotice = false) {
 
     renderContent();
 
-    if (showToastNotice) {
-      showToast('อัปเดตข้อมูลข่าวสาร Talk of The Town เรียบร้อย!', 'success');
+    const newCuratedCount = state.curatedNews.filter(n => !prevCuratedIds.has(n.id)).length;
+    const newLiveCount = state.liveNews.filter(n => !prevLiveIds.has(n.id)).length;
+
+    state.lastUpdated = Date.now();
+    updateAutoRefreshPill();
+    updateLiveTicker();
+
+    if (isSilent && (newCuratedCount > 0 || newLiveCount > 0)) {
+      showToast(`🔔 อัปเดตสด: พบประเด็นร้อนใหม่ ${newCuratedCount + newLiveCount} ข่าว!`, 'success');
+    } else if (showToastNotice) {
+      showToast('อัปเดตข้อมูลข่าวสาร Talk of The Town ล่าสุดเรียบร้อย!', 'success');
     }
   } catch (err) {
     console.error('Error loading content:', err);
-    showToast('เกิดข้อผิดพลาดในการโหลดข้อมูลข่าวสาร', 'error');
+    if (!isSilent) showToast('เกิดข้อผิดพลาดในการโหลดข้อมูลข่าวสาร', 'error');
   } finally {
-    showLoading(false);
+    if (refreshIcon) refreshIcon.classList.remove('animate-spin');
+    if (!isSilent) showLoading(false);
   }
 }
 
@@ -406,12 +496,12 @@ function renderHeroSpotlight() {
               </button>
             </div>
 
-            <!-- 3 Key Bullets -->
-            <ul class="space-y-2.5 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
+            <!-- 3 Key Bullets: สรุปสั้นกระชับแต่ครบถ้วน ตัวหนังสือใหญ่อ่านง่าย -->
+            <ul class="space-y-3 text-sm sm:text-base text-gray-800 dark:text-gray-100 font-medium">
               ${(heroItem.summary || []).map((point, idx) => `
-                <li class="flex items-start gap-2.5 bg-gray-50 dark:bg-slate-800/60 p-2.5 rounded-xl border border-gray-100 dark:border-slate-800">
-                  <span class="w-5 h-5 rounded-full bg-rose-500/20 text-rose-500 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">${idx + 1}</span>
-                  <span class="leading-snug">${point}</span>
+                <li class="flex items-start gap-3 bg-gray-50 dark:bg-slate-800/70 p-3 rounded-2xl border border-gray-100 dark:border-slate-800/90 shadow-sm">
+                  <span class="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-sm">${idx + 1}</span>
+                  <span class="leading-relaxed">${point}</span>
                 </li>
               `).join('')}
             </ul>
@@ -475,19 +565,7 @@ function renderHeroPollOptions(poll) {
 }
 
 function toggleHeroSpotlight(region) {
-  state.activeHeroRegion = region;
-  const thTab = document.getElementById('hero-tab-th');
-  const globalTab = document.getElementById('hero-tab-global');
-
-  if (region === 'th') {
-    thTab.className = 'px-2.5 py-1 rounded-md bg-rose-500 text-white font-semibold transition-all';
-    globalTab.className = 'px-2.5 py-1 rounded-md bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 font-semibold transition-all';
-  } else {
-    globalTab.className = 'px-2.5 py-1 rounded-md bg-rose-500 text-white font-semibold transition-all';
-    thTab.className = 'px-2.5 py-1 rounded-md bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 font-semibold transition-all';
-  }
-
-  renderHeroSpotlight();
+  setRegionFilter(region);
 }
 
 // 9. Main News Grid Rendering
@@ -553,20 +631,31 @@ function renderNewsGrid(items) {
             </div>
           </div>
 
-          <!-- Article Body -->
-          <div class="p-4 sm:p-5 space-y-3">
-            <h3 class="font-bold text-base sm:text-lg font-heading leading-snug cursor-pointer group-hover:text-rose-500 transition-colors line-clamp-2" onclick="openArticleModal('${item.id}')">
+          <!-- Article Body: ตัวหนังสือใหญ่ อ่านออกง่าย สรุปสั้นกระชับ -->
+          <div class="p-5 space-y-3.5">
+            <h3 class="font-bold text-lg sm:text-xl font-heading leading-snug cursor-pointer group-hover:text-rose-500 transition-colors line-clamp-2 text-gray-900 dark:text-white" onclick="openArticleModal('${item.id}')">
               ${item.title}
             </h3>
 
-            <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
-              ${item.subtitle || (item.summary ? item.summary[0] : '')}
-            </p>
+            <!-- Concise Takeaway Box: สรุปสั้นกระชับ 2 ประเด็นเน้นๆ -->
+            <div class="p-3.5 rounded-2xl bg-gray-50 dark:bg-slate-800/80 border border-gray-100 dark:border-slate-800/90 takeaway-box space-y-2">
+              <div class="flex items-center gap-1.5 text-xs font-bold text-rose-500 dark:text-rose-400 uppercase tracking-wide">
+                <i class="fa-solid fa-bolt-lightning text-xs"></i> สรุปใจความสำคัญ
+              </div>
+              <ul class="space-y-1.5 text-xs sm:text-sm text-gray-700 dark:text-gray-200 leading-relaxed">
+                ${((item.summary && item.summary.length > 0) ? item.summary.slice(0, 2) : [item.subtitle || 'ติดตามสถานการณ์และความเคลื่อนไหวล่าสุด']).map(point => `
+                  <li class="line-clamp-2 flex items-start gap-1.5">
+                    <span class="text-rose-500 font-bold shrink-0 mt-0.5">•</span>
+                    <span>${point}</span>
+                  </li>
+                `).join('')}
+              </ul>
+            </div>
 
             <!-- Tags -->
             <div class="flex flex-wrap items-center gap-1.5 pt-1">
               ${(item.tags || []).slice(0, 3).map(tag => `
-                <span class="text-[10px] font-medium text-gray-500 dark:text-gray-400 hover:text-rose-500 transition-colors cursor-pointer" onclick="filterByTag('${tag}')">
+                <span class="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-rose-500 transition-colors cursor-pointer" onclick="filterByTag('${tag}')">
                   ${tag}
                 </span>
               `).join('')}
@@ -669,28 +758,28 @@ function openArticleModal(id) {
       </div>
     </div>
 
-    <!-- AI Executive Summary Box -->
-    <div class="bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 rounded-2xl p-4 sm:p-5 space-y-3">
+    <!-- AI Executive Summary Box: ตัวหนังสือใหญ่ อ่านง่าย สรุปสั้นกระชับแต่ครบถ้วน -->
+    <div class="bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 rounded-3xl p-5 sm:p-6 space-y-3.5 shadow-sm">
       <div class="flex items-center justify-between">
-        <h3 class="font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2 text-sm">
-          <i class="fa-solid fa-brain"></i> สรุปใจความสำคัญใน 30 วินาที (Executive AI Takeaways)
+        <h3 class="font-bold text-rose-600 dark:text-rose-400 flex items-center gap-2 text-base sm:text-lg">
+          <i class="fa-solid fa-brain text-lg"></i> สรุปใจความสำคัญใน 30 วินาที (Executive AI Takeaways)
         </h3>
-        <span class="text-[11px] px-2 py-0.5 rounded bg-rose-500 text-white font-bold">สรุปอัตโนมัติ</span>
+        <span class="text-xs px-2.5 py-1 rounded-full bg-rose-500 text-white font-bold">สรุปกระชับ</span>
       </div>
-      <ul class="space-y-2 text-xs sm:text-sm text-gray-800 dark:text-gray-200">
+      <ul class="space-y-3 text-sm sm:text-base text-gray-900 dark:text-gray-100 font-medium">
         ${(item.summary || []).map((point, idx) => `
-          <li class="flex items-start gap-2">
-            <span class="w-4 h-4 rounded-full bg-rose-500 text-white flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">${idx + 1}</span>
-            <span>${point}</span>
+          <li class="flex items-start gap-3 bg-white/70 dark:bg-slate-900/60 p-3 rounded-2xl border border-rose-100 dark:border-rose-900/40">
+            <span class="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5 shadow-sm">${idx + 1}</span>
+            <span class="leading-relaxed">${point}</span>
           </li>
         `).join('')}
       </ul>
     </div>
 
-    <!-- Full In-Depth Narrative -->
-    <div class="space-y-4">
-      <h3 class="font-bold text-base font-heading">บทวิเคราะห์เจาะลึกสถานการณ์</h3>
-      <p class="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line text-sm">
+    <!-- Full In-Depth Narrative: ตัวหนังสือใหญ่อ่านสบายตา -->
+    <div class="space-y-3">
+      <h3 class="font-bold text-lg sm:text-xl font-heading text-gray-900 dark:text-white">บทวิเคราะห์เจาะลึกสถานการณ์</h3>
+      <p class="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-line text-base sm:text-lg font-normal">
         ${item.content}
       </p>
     </div>
@@ -908,6 +997,34 @@ function renderBookmarksView() {
     ...state.curatedNews.filter(n => state.bookmarks.includes(n.id)),
     ...state.liveNews.filter(n => state.bookmarks.includes(n.id))
   ];
+
+  const grid = document.getElementById('news-grid');
+  const emptyState = document.getElementById('empty-state');
+  const newsCount = document.getElementById('news-count');
+
+  if (newsCount) newsCount.textContent = bookmarkedItems.length;
+
+  if (bookmarkedItems.length === 0) {
+    if (grid) grid.innerHTML = '';
+    if (emptyState) {
+      emptyState.classList.remove('hidden');
+      emptyState.innerHTML = `
+        <div class="w-20 h-20 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto text-3xl mb-4">
+          <i class="fa-solid fa-bookmark"></i>
+        </div>
+        <h3 class="text-xl font-bold mb-2">ยังไม่มีประเด็นที่คุณบันทึกไว้</h3>
+        <p class="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-5">
+          คลิกที่ไอคอนรูป 🔖 บนการ์ดข่าวที่คุณสนใจ เพื่อเก็บประเด็นร้อนไว้อ่านสรุปได้ทันที
+        </p>
+        <button onclick="switchMainView('curated')" class="px-5 py-2.5 rounded-xl bg-rose-500 text-white text-sm font-semibold hover:bg-rose-600 transition-colors shadow-md shadow-rose-500/20">
+          ดูข่าวสาร Talk of The Town
+        </button>
+      `;
+    }
+    return;
+  }
+
+  if (emptyState) emptyState.classList.add('hidden');
   renderNewsGrid(bookmarkedItems);
 }
 
@@ -915,7 +1032,10 @@ function renderBookmarksView() {
 function renderPollsView() {
   const grid = document.getElementById('news-grid');
   const emptyState = document.getElementById('empty-state');
+  const newsCount = document.getElementById('news-count');
   const pollItems = state.curatedNews.filter(n => n.poll);
+
+  if (newsCount) newsCount.textContent = pollItems.length;
 
   if (pollItems.length === 0) {
     if (grid) grid.innerHTML = '';
@@ -926,21 +1046,28 @@ function renderPollsView() {
   if (emptyState) emptyState.classList.add('hidden');
 
   grid.innerHTML = pollItems.map(item => `
-    <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-2xl p-5 shadow-sm space-y-4">
+    <div class="bg-white dark:bg-darkcard border border-gray-200 dark:border-darkborder rounded-3xl p-6 shadow-sm hover:shadow-md transition-all space-y-4">
       <div class="flex items-center justify-between">
-        <span class="text-xs font-bold px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-500">
+        <span class="text-xs font-bold px-3 py-1 rounded-md bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
           ${item.region === 'th' ? '🇹🇭 โพลไทย' : '🌍 โพลโลก'}
         </span>
-        <span class="text-xs text-gray-400">กระแส ${item.buzzScore}% 🔥</span>
+        <span class="text-xs font-semibold text-gray-500 dark:text-gray-400">ดัชนี ${item.buzzScore}% 🔥</span>
       </div>
-      <h3 class="font-bold text-sm leading-snug cursor-pointer hover:text-rose-500 transition-colors" onclick="openArticleModal('${item.id}')">
+      <h3 class="font-bold text-lg sm:text-xl font-heading leading-snug cursor-pointer hover:text-rose-500 transition-colors line-clamp-2 text-gray-900 dark:text-white" onclick="openArticleModal('${item.id}')">
         ${item.title}
       </h3>
-      <div class="p-3 bg-gray-50 dark:bg-slate-800/60 rounded-xl border border-gray-100 dark:border-slate-800 space-y-2">
-        <p class="text-xs font-bold text-gray-800 dark:text-gray-200">${item.poll.question}</p>
-        <div class="space-y-1.5" id="hero-poll-options-${item.poll.id}">
+      <div class="p-4 bg-gray-50 dark:bg-slate-800/70 rounded-2xl border border-gray-100 dark:border-slate-800/90 space-y-3">
+        <p class="text-sm font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <i class="fa-solid fa-square-poll-vertical text-indigo-500"></i>
+          <span>${item.poll.question}</span>
+        </p>
+        <div class="space-y-2" id="hero-poll-options-${item.poll.id}">
           ${renderHeroPollOptions(item.poll)}
         </div>
+      </div>
+      <div class="flex items-center justify-between pt-2 text-xs font-semibold text-gray-500 border-t border-gray-100 dark:border-slate-800">
+        <span><i class="fa-solid fa-newspaper mr-1 text-rose-500"></i>${item.source}</span>
+        <button onclick="openArticleModal('${item.id}')" class="text-rose-500 hover:underline">อ่านสรุปเต็ม →</button>
       </div>
     </div>
   `).join('');
@@ -1310,42 +1437,83 @@ function switchMainView(view) {
     const btn = document.getElementById(`nav-btn-${v}`);
     if (btn) {
       if (v === view) {
-        btn.classList.add('active', 'bg-gray-100', 'dark:bg-slate-800', 'text-gray-900', 'dark:text-white');
+        btn.className = 'nav-tab active flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-rose-500 text-white shadow-md shadow-rose-500/25 transition-all';
       } else {
-        btn.classList.remove('active', 'bg-gray-100', 'dark:bg-slate-800', 'text-gray-900', 'dark:text-white');
+        btn.className = 'nav-tab flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800';
       }
     }
   });
+
+  // Smooth visual feedback
+  const heroSection = document.getElementById('hero-section');
+  if (view !== 'curated' && heroSection) {
+    heroSection.classList.add('hidden');
+  } else if (view === 'curated' && heroSection) {
+    heroSection.classList.remove('hidden');
+  }
+
   renderContent();
+
+  const labels = {
+    curated: 'Talk of The Town คัดสรร',
+    live: 'สตรีมข่าวสด RSS เรียลไทม์',
+    polls: 'โพลสำรวจความคิดเห็นมหาชน',
+    bookmarks: 'ข่าวสารที่คุณบันทึกไว้'
+  };
+  showToast(`เปลี่ยนมุมมอง: ${labels[view] || view}`, 'info');
 }
 
 function setRegionFilter(region) {
   state.regionFilter = region;
+  if (region !== 'all') {
+    state.activeHeroRegion = region;
+  }
+
   const regions = ['all', 'th', 'global'];
   regions.forEach(r => {
     const pill = document.getElementById(`region-btn-${r}`);
     if (pill) {
       if (r === region) {
-        pill.classList.add('bg-white', 'dark:bg-slate-700', 'shadow-xs', 'text-rose-500', 'font-bold');
+        pill.className = 'region-pill px-3 py-1.5 rounded-lg transition-all bg-white dark:bg-slate-700 shadow-sm text-rose-500 font-bold';
       } else {
-        pill.classList.remove('bg-white', 'dark:bg-slate-700', 'shadow-xs', 'text-rose-500', 'font-bold');
+        pill.className = 'region-pill px-3 py-1.5 rounded-lg transition-all text-gray-600 dark:text-gray-400 font-semibold hover:text-gray-900 dark:hover:text-white';
       }
     }
   });
+
+  // Sync Hero tabs
+  const thTab = document.getElementById('hero-tab-th');
+  const globalTab = document.getElementById('hero-tab-global');
+  if (thTab && globalTab) {
+    if (state.activeHeroRegion === 'th') {
+      thTab.className = 'px-3 py-1 rounded-lg bg-rose-500 text-white font-bold transition-all shadow-sm';
+      globalTab.className = 'px-3 py-1 rounded-lg bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 font-bold transition-all';
+    } else {
+      globalTab.className = 'px-3 py-1 rounded-lg bg-rose-500 text-white font-bold transition-all shadow-sm';
+      thTab.className = 'px-3 py-1 rounded-lg bg-gray-200 dark:bg-slate-800 text-gray-700 dark:text-gray-300 font-bold transition-all';
+    }
+  }
+
   renderContent();
+  const regionNames = { all: 'ประเด็นทั้งหมด', th: 'ประเด็นร้อนไทย 🇹🇭', global: 'ประเด็นร้อนโลก 🌍' };
+  showToast(`กรองภูมิภาค: ${regionNames[region] || region}`, 'info');
 }
 
 function setCategoryFilter(cat) {
   state.categoryFilter = cat;
   const pills = document.querySelectorAll('.cat-pill');
   pills.forEach(p => {
-    if (p.textContent.includes(cat) || (cat === 'all' && p.textContent.includes('ทั้งหมด'))) {
-      p.className = 'cat-pill active-cat px-3 py-1.5 rounded-full text-xs font-bold bg-rose-500 text-white whitespace-nowrap shadow-xs';
+    const isAll = cat === 'all' && (p.textContent.includes('ทั้งหมด') || p.getAttribute('onclick')?.includes("'all'"));
+    const isMatch = p.getAttribute('onclick')?.includes(`'${cat}'`) || p.textContent.includes(cat);
+    if (isAll || isMatch) {
+      p.className = 'cat-pill active-cat px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-bold bg-rose-500 text-white whitespace-nowrap shadow-md shadow-rose-500/20 transition-all';
     } else {
-      p.className = 'cat-pill px-3 py-1.5 rounded-full text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-800 whitespace-nowrap transition-all';
+      p.className = 'cat-pill px-3.5 py-1.5 rounded-full text-xs sm:text-sm font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-800 whitespace-nowrap transition-all';
     }
   });
+
   renderContent();
+  showToast(`หมวดหมู่: ${cat === 'all' ? 'ทั้งหมด' : cat}`, 'info');
 }
 
 function onSortChange(value) {

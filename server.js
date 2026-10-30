@@ -26,7 +26,7 @@ const rssCache = {
   th: { timestamp: 0, items: [] },
   global: { timestamp: 0, items: [] }
 };
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 90 * 1000; // 1.5 minutes for real-time freshness
 
 // Helper to read JSON
 function readJson(filename, defaultValue = {}) {
@@ -87,7 +87,12 @@ function parseRssXml(xml, region = 'th') {
     let link = linkMatch ? linkMatch[1].trim() : '#';
     let pubDate = pubDateMatch ? pubDateMatch[1].trim() : new Date().toISOString();
     let source = sourceMatch ? sourceMatch[1].replace(/<[^>]+>/g, '').trim() : (region === 'th' ? 'สำนักข่าวไทย' : 'Global Wire');
-    let desc = descMatch ? descMatch[1].replace(/<[^>]+>/g, '').trim() : '';
+    // Clean description helper
+    let cleanDesc = desc
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
     // Split title and source if in "Title - Source" format
     let cleanTitle = rawTitle;
@@ -120,6 +125,25 @@ function parseRssXml(xml, region = 'th') {
       const imgList = defaultImages[region] || defaultImages.th;
       const image = imgList[idx % imgList.length];
 
+      // Build concise yet complete 3-bullet summary
+      let bullet1 = '';
+      let bullet2 = '';
+      let bullet3 = '';
+
+      if (region === 'th') {
+        bullet1 = `📌 สาระสำคัญ: ${cleanTitle}`;
+        bullet2 = cleanDesc && cleanDesc.length > 15
+          ? `⚡ ความเคลื่อนไหว: ${cleanDesc.slice(0, 140)}${cleanDesc.length > 140 ? '...' : ''}`
+          : `⚡ รายงานสดจาก ${source} ประเด็นร้อนที่สังคมจับตาในหมวด${category}`;
+        bullet3 = `🔮 สิ่งที่ต้องจับตา: ผลกระทบต่อประชาชนและทิศทางจากหน่วยงานที่เกี่ยวข้อง`;
+      } else {
+        bullet1 = `📌 Core Issue: ${cleanTitle}`;
+        bullet2 = cleanDesc && cleanDesc.length > 15
+          ? `⚡ Context: ${cleanDesc.slice(0, 140)}${cleanDesc.length > 140 ? '...' : ''}`
+          : `⚡ Developing international report tracked by ${source} under ${category}`;
+        bullet3 = `🔮 What's Next: Global stakeholders await subsequent policy or market impacts`;
+      }
+
       items.push({
         id: `rss-${region}-${idx + 1}`,
         region,
@@ -130,18 +154,14 @@ function parseRssXml(xml, region = 'th') {
         views: Math.floor(45000 + Math.random() * 50000),
         shares: Math.floor(3000 + Math.random() * 8000),
         title: cleanTitle,
-        subtitle: desc || 'อัปเดตสดจากสำนักข่าวชั้นนำ เกาะติดความเคลื่อนไหวล่าสุด',
+        subtitle: cleanDesc || (region === 'th' ? `อัปเดตสดจาก ${source} เกาะติดสถานการณ์สำคัญ` : `Live report by ${source}`),
         source,
         sourceUrl: link,
         publishedAt: pubDate,
         readTime: '2 นาที',
         image,
-        summary: [
-          'รายงานสถานการณ์สดจากแหล่งข่าวต้นทาง',
-          'ประเด็นที่กำลังได้รับความสนใจและถูกแชร์ในโลกโซเชียลมีเดีย',
-          'สามารถกดอ่านเนื้อหาฉบับเต็มได้จากลิงก์สำนักข่าวทางการ'
-        ],
-        content: desc ? `${desc}\n\nติดตามรายละเอียดฉบับเต็มและภาพข่าวเพิ่มเติมได้จากสำนักข่าว ${source}` : `เกาะติดประเด็นร้อน '${cleanTitle}' จากสำนักข่าว ${source} อ่านรายละเอียดเพิ่มเติมได้ที่ลิงก์ต้นทาง`,
+        summary: [bullet1, bullet2, bullet3],
+        content: cleanDesc ? `${cleanDesc}\n\nติดตามรายละเอียดฉบับเต็มและภาพข่าวเพิ่มเติมได้จากสำนักข่าว ${source}` : `เกาะติดประเด็นร้อน '${cleanTitle}' จากสำนักข่าว ${source} อ่านรายละเอียดเพิ่มเติมได้ที่ลิงก์ต้นทาง`,
         reactions: { fire: 240 + idx * 10, clap: 120 + idx * 5, idea: 80, sad: 15 },
         tags: [`#${category}`, `#${region === 'th' ? 'ข่าวไทย' : 'ข่าวต่างประเทศ'}`, '#ข่าวด่วนวันนี้']
       });
@@ -177,6 +197,16 @@ async function fetchLiveFeed(region = 'th') {
     }
   } catch (err) {
     console.error(`Fetch RSS (${region}) error:`, err.message);
+  }
+
+  // Robust fallback to live-cache.json
+  if (!rssCache[region] || !rssCache[region].items || rssCache[region].items.length === 0) {
+    const cachedAll = readJson('live-cache.json', []);
+    const filtered = cachedAll.filter(item => item.region === region);
+    if (filtered.length > 0) {
+      rssCache[region] = { timestamp: now, items: filtered };
+      return filtered;
+    }
   }
 
   return rssCache[region] ? rssCache[region].items : [];
